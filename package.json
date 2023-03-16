@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "@google-cloud/local-auth": "^2.1.0",
+    "googleapis": "^105.0.0",
+    "pdf-creator-node": "^2.3.5",
+    "pdfkit": "^0.13.0"
+  }
+}
