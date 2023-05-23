@@ -1,36 +1,31 @@
 const PDFDocument = require('pdfkit');
 const path = require('path');
 const process = require('process');
-const {authenticate} = require('@google-cloud/local-auth');
-const {google} = require('googleapis');
-const fs = require('fs').promises;
-const fss = require('fs');
-const path = `caminhodapasta`
+const { authenticate } = require('@google-cloud/local-auth');
+const { google } = require('googleapis');
+const filesystem = require('fs').promises;
+const createfile = require('fs');
 
 async function generatePDF(rows) {
-  const doc = new PDFDocument({size: 'A4'});
+  const doc = new PDFDocument({ size: 'A4' });
   doc.font('Helvetica')
   doc.image('./logo.png', {width:350,align: 'center'})
   doc.lineGap(15)
   doc.fontSize(16).text('Relatório de ronda noturna', {align: 'center', underline: true});
   
   /* DEFININDO AS DATAS PARA BUSCAS */
-  let opcoes = { timeZone: 'UTC', timeZoneName: 'short' };
-
+  let searchSettings = { timeZone: 'UTC', timeZoneName: 'short' };
   /* DIA INÍCIO */
   let dia_inicio = new Date(2023, 4, 07);
-  let mes_inicio = dia_inicio.getMonth();
-  let dataUTC_inicio = dia_inicio.toLocaleDateString(opcoes)
-
+  let dataUTC_inicio = dia_inicio.toLocaleDateString(searchSettings)
   /* DIA FIM */
   dia_fim = new Date(dia_inicio);
   dia_fim.setDate(dia_fim.getDate() + 8)
-  let dataUTC_fim = dia_fim.toLocaleDateString(opcoes)
+  let dataUTC_fim = dia_fim.toLocaleDateString(searchSettings)
 
-  console.log('RANGE: ', dataUTC_inicio, dataUTC_fim) // DATAS RANGES
+  console.log('Período: ', dataUTC_inicio, dataUTC_fim) // RANGE DE DATAS
 
-
-  /* CHAMADA DAS DATAS EM STRING */
+  /* CHAMADA DAS DATAS STRING PARA REALIZAR BUSCAS NA PLANILHA */
   function indexReportInicio() {
    return dataUTC_inicio;
   }
@@ -38,22 +33,19 @@ async function generatePDF(rows) {
     return dataUTC_fim;
    }
 
-   /* BUSCA DO INDEX */
-
+   /* BUSCA DO INDEX INICIAL E FINAL */
   let findInicio = rows.findIndex(row => row[0] == indexReportInicio() )
   console.log('início: ', findInicio) 
   
   let findFim = rows.findIndex(row => row[0] == indexReportFim() )
   console.log('fim: ', findFim)
   
-  /*
-  PROCURAR O INDEX DO INICIO E CAPTAR ATÉ O INDEX DA DATA FINAL (LIMITE DO ACUMULADOR)
-  */
-
+  
+  /* ITERAÇÃO DOS DADOS */
   for(findInicio; findInicio < findFim; findInicio++){
     const result = rows.filter((element, index) => index === findInicio);
     if (result !== undefined) {
-      /* PARA CADA ELEMENTO, INSERE OS VALORES */
+      /* PARA CADA ELEMENTO, INSERE OS VALORES ABAIXO */
       result.forEach((row, index) => {
         doc.moveDown();
         doc.fontSize(14).text(`Data: ${row[0]}`, {align: 'center'});
@@ -78,12 +70,12 @@ async function generatePDF(rows) {
     }
     doc.addPage();
   }
-  doc.pipe(fss.createWriteStream(path));
+  doc.pipe(createfile.createWriteStream(`filepath`));
   doc.end();
 }
 
 
-// Define o SCOPES
+// DEFINE O SCOPES
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly'];
 
 // O arquivo token.json armazena o acesso do usuário e recarrega tokens e é criado
@@ -91,13 +83,9 @@ const SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly'];
 const TOKEN_PATH = path.join(process.cwd(), 'token.json');
 const CREDENTIALS_PATH = path.join(process.cwd(), 'client.json');
 
-/*
- * @return {Promise<OAuth2Client|null>}
- */
-
 async function loadSavedCredentialsIfExist() {
   try {
-    const content = await fs.readFile(TOKEN_PATH);
+    const content = await filesystem.readFile(TOKEN_PATH);
     const credentials = JSON.parse(content);
     return google.auth.fromJSON(credentials);
   } catch (err) {
@@ -105,13 +93,8 @@ async function loadSavedCredentialsIfExist() {
   }
 }
 
-/**
- * @param {OAuth2Client} client
- * @return {Promise<void>}
- */
-
 async function saveCredentials(client) {
-  const content = await fs.readFile(CREDENTIALS_PATH);
+  const content = await filesystem.readFile(CREDENTIALS_PATH);
   const keys = JSON.parse(content);
   const key = keys.installed || keys.web;
   const payload = JSON.stringify({
@@ -120,13 +103,10 @@ async function saveCredentials(client) {
     client_secret: key.client_secret,
     refresh_token: client.credentials.refresh_token,
   });
-  await fs.writeFile(TOKEN_PATH, payload);
+  await filesystem.writeFile(TOKEN_PATH, payload);
 }
 
-/**
- * Carrega, requisita ou autoriza para chamar APIs
- *
- */
+/* Carrega, requisita ou autoriza para chamar API */
 async function authorize() {
   let client = await loadSavedCredentialsIfExist();
   if (client) {
@@ -145,8 +125,8 @@ async function authorize() {
 async function listMajors(auth) {
   const sheets = google.sheets({version: 'v4', auth});
   const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: 'iddaplanilhagsheet',
-    range: 'nomedaplanilha!B:R',
+    spreadsheetId: 'gheetsID',
+    range: 'sheetname!B:R',
   });
   const rows = res.data.values;
   if (!rows || rows.length === 0) {
